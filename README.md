@@ -767,28 +767,235 @@ Cell Leakage Power     =   2.6824 uW
 Information: report_power power group summary does not include estimated clock tree power. (PWR-789)
 
 
-                 Internal         Switching           Leakage            Total
-Power Group      Power            Power               Power              Power   (   %    )  Attrs
---------------------------------------------------------------------------------------------------
-io_pad             0.0000            0.0000            0.0000            0.0000  (   0.00%)
-memory             0.0000            0.0000            0.0000            0.0000  (   0.00%)
-black_box          0.0000            0.0000            0.0000            0.0000  (   0.00%)
-clock_network      0.0000            0.0000            0.0000            0.0000  (   0.00%)
-register           0.0000            0.0000            0.0000            0.0000  (   0.00%)
-sequential       104.6088            9.9684        2.1202e+03          116.6974  (  80.18%)
-combinational     20.1836            8.0998          562.2181           28.8456  (  19.82%)
---------------------------------------------------------------------------------------------------
-Total            124.7924 uW        18.0682 uW     2.6824e+03 nW       145.5430 uW
+![Screenshot 2024-12-15 154839](https://github.com/user-attachments/assets/2b57e8dd-fb2c-416e-b5c6-75bfeb2556bd)
+
 
 According to the report, the total power reading the saif file is 145.5430 uW.
 
-Note
 
-If you are using vsim from Mentor, you can add the tcl commands
+**Note**
 
-power add -in -inout -internal -out /my_adder_tb/DUT/*
+As I am using vsim from Mentor, I can add the tcl commands
 
-power report -all -bsaif test.saif
+**power add -in -inout -internal -out /my_adder_tb/DUT/***
+
+**power report -all -bsaif test.saif**
+
+
+
+**6. Place&Route**
+
+
+The goal of the place and route is to transform the netlist into a layout. Basically, for that you have to determine the location of each single gate (placement) and to find how to connect the gates with metal wires (routing)
+
+The steps area
+
+Design initialization
+
+Floorplaning
+
+Placement
+
+Routing
+
+Export design
+
+**6.1. Setup the tool**
+
+As usual, go to the directory where you plan to run the tool (do_pr in this case) and create sub directories to organize the date. For example:
+
+cd my_adder/do_pr
+
+mkdir results
+
+mkdir reports
+
+mkdir cmd
+
+mkdir log
+
+mkdir tool
+
+For the lab I am going to use the INNOVUS tools from Cadence. Create a sourceme.csh file to do the setup.
+
+setenv LM_LICENSE_FILE "28211@item0096"
+
+source /eda/cadence/2017-18/scripts/INNOVUS_17.11.000_RHELx86.csh
+
+Now you can source that file.
+
+source sourceme.csh
+
+Now I can start the tool
+
+**innovus -log log/**
+
+![Screenshot 2024-12-15 155507](https://github.com/user-attachments/assets/04f483e1-e272-42e7-8f7e-28a378d3b7bf)
+
+
+**6.2. Initialize the design**
+
+Now I can read the design. In the menu execute File → Import Design
+
+
+![Screenshot 2024-12-15 155631](https://github.com/user-attachments/assets/5f2c43a0-7429-4e32-a94f-b5e3af636ba8)
+
+
+I have to select the verilog file to read (and the name of the top cell), the LEF files with the information about the standard cells, and the power nets of design, i.e. VDD and VSS. Click OK to proceed.
+
+Alternatively I can execute the following tcl commands:
+
+set init_lef_file ../../../0_FreePDK45/LEF/NangateOpenCellLibrary.lef
+
+set init_gnd_net VSS
+
+set init_pwr_net VDD
+
+set init_verilog ../gate/my_adder.v
+
+set init_top_cell my_adder
+
+init_design
+
+**6.3. Floorplan**
+
+The next step is to define the floorplan of  unit. In the menu select Floorplan → Specify floorplan. For example, I can select that the design should have an aspect ration of 1, a core utilization of 70% and a core to 
+io boundary distance of 3 μ m in all the directions.
+
+
+![Screenshot 2024-12-15 155948](https://github.com/user-attachments/assets/7a778916-40af-410a-99e0-891d35a2dfa0)
+
+Alternatively I can execute in the tcl terminal:
+
+floorPlan  -r 1 0.7 3.0 3.0 3.0 3.0
+
+#+ Location of pins can be set with Edit → Pin editor.
+
+
+**6.4. Place the cells and pins**
+
+
+Now we can place the cells. In the menu slect **Place → Place standard cells**
+
+
+![Screenshot 2024-12-15 160126](https://github.com/user-attachments/assets/09adb546-27cd-4676-aedd-c37b32bfe640)
+
+
+deselect the Include Pre-Place Optimization and click in Mode... to select additional options. In the new window you should select Place IO Pins.
+
+
+![Screenshot 2024-12-15 160221](https://github.com/user-attachments/assets/aa5d9ab3-0310-4c30-8b86-f453f469027c)
+
+
+**setPlaceMode -placeIOPins 1**
+
+**placeDesign -noPrePlaceOpt**
+
+
+Since in this simple tutorial we are not using timing constraints, we are not going to generate an optimized clock tree.
+
+Now I should insert filler cells to fill the holes in the rows. In the menu select** Place → Physical cells → Filler cells.** Click in Select and select all the filler cells, then click ok.
+
+
+![Screenshot 2024-12-15 160457](https://github.com/user-attachments/assets/ad9e22e0-8bc6-4735-bf9e-31a66c83b0cd)
+
+
+Alternatively, you can execute the following tcl command.
+
+
+addFiller -cell FILLCELL_X8 FILLCELL_X4 FILLCELL_X2 FILLCELL_X1 -prefix FILLER
+
+
+![Screenshot 2024-12-15 160605](https://github.com/user-attachments/assets/24d5d4a5-cd7e-4cc8-8df0-cb962ea2ca58)
+
+
+**6.5. Route the design**
+
+After the placement, we can route the nets. In the menu select Route → Nano route → Route.
+
+![Screenshot 2024-12-15 160701](https://github.com/user-attachments/assets/8cdc2b3d-9db1-493f-a573-dea9a8d6c5d2)
+
+
+Alternatively, you can execute the following tcl command.
+
+routeDesign -globalDetail
+
+#dumpToGIF can be used to plot an image automatically.
+
+
+![Screenshot 2024-12-15 160808](https://github.com/user-attachments/assets/63dee2b6-dbb3-4fe3-90ee-35bb475a0725)
+
+**6.6. Verify and write result**
+
+I can check that my design does not have errors. In the tcl terminal type:
+
+verify_drc   -report reports/my_adder.drc
+
+verify_connectivity -report reports/my_adder.connect
+
+
+Now I can export your design into a gds file. File → Save → GDS/Oasis.
+
+
+![Screenshot 2024-12-15 160933](https://github.com/user-attachments/assets/c54027fa-73d8-4d22-9b06-60774c616cfb)
+
+
+
+Alternatively, you can execute the following tcl command.
+
+**streamOut results/my_adder.gds -mapFile streamOut.map -libName my_library -units 2000 -mode ALL**
+
+
+**6.7. Automatic execution**
+
+
+My first place and route is done. If I want to repeat the steps, it is a good idea to create a script with all the commands. I can create a file called cmd/do_pr_spl.tcl with the following content:
+
+set init_lef_file ../../../0_FreePDK45/LEF/NangateOpenCellLibrary.lef
+
+set init_gnd_net VSS
+
+set init_pwr_net VDD
+
+set init_verilog ../gate/my_adder.v
+
+set init_top_cell my_adder
+
+init_design
+
+floorPlan  -r 1 0.7 3.0 3.0 3.0 3.0
+
+setPlaceMode -placeIOPins 1
+
+placeDesign -noPrePlaceOpt 
+
+addFiller -cell FILLCELL_X8 FILLCELL_X4 FILLCELL_X2 FILLCELL_X1 -prefix FILLER
+
+routeDesign -globalDetail
+
+verify_drc   -report reports/my_adder.drc
+
+verify_connectivity -report reports/my_adder.connect
+
+streamOut results/my_adder.gds -mapFile streamOut.map -libName my_library -units 2000 -mode ALL
+
+and then re-execute the process as follows:
+
+innovus -log log/ -file cmd/do_pr_spl.tcl -batch 
+
+Once I am satisfied with the results of place and route, I can copy the files to the directory layout . From this directory I can run the physical verification.
+
+cp results/my_adder.gds ../layout
+
+
+
+
+
+
+
+
+
+
 
 
 
